@@ -10,10 +10,14 @@ import random
 import math
 import time
 import threading
-#from vehicle_detection import detection
+# from vehicle_detection import detection
 import pygame
 import sys
 import os
+
+# Configuration for simulation mode
+ADAPTIVE_MODE = True  # Set to False for conventional fixed timing mode
+FIXED_GREEN_TIME = 12  # Fixed green time for conventional mode
 
 # options={
 #    'model':'./cfg/yolo.cfg',     #specifying the path of model
@@ -32,7 +36,7 @@ defaultMaximum = 60
 
 signals = []
 noOfSignals = 4
-simTime = 300       # change this to change time of simulation
+simTime = 1800      # change this to change time of simulation
 timeElapsed = 0
 
 currentGreen = 0   # Indicates which signal is green
@@ -276,10 +280,19 @@ def initialize():
     signals.append(ts4)
     repeat()
 
-# Set time according to formula
+# Set time according to formula (adaptive mode) or use fixed time (conventional mode)
 def setTime():
     global noOfCars, noOfBikes, noOfBuses, noOfTrucks, noOfRickshaws, noOfLanes
     global carTime, busTime, truckTime, rickshawTime, bikeTime
+    
+    if not ADAPTIVE_MODE:
+        # Conventional mode: use fixed green time
+        greenTime = FIXED_GREEN_TIME
+        print('Green Time (Fixed): ',greenTime)
+        signals[(currentGreen+1)%(noOfSignals)].green = greenTime
+        return
+    
+    # Adaptive mode: calculate green time based on vehicle count
     os.system("say detecting vehicles, "+directionNumbers[(currentGreen+1)%noOfSignals])
 #    detection_result=detection(currentGreen,tfnet)
 #    greenTime = math.ceil(((noOfCars*carTime) + (noOfRickshaws*rickshawTime) + (noOfBuses*busTime) + (noOfBikes*bikeTime))/(noOfLanes+1))
@@ -314,7 +327,7 @@ def setTime():
     # print(noOfCars)
     greenTime = math.ceil(((noOfCars*carTime) + (noOfRickshaws*rickshawTime) + (noOfBuses*busTime) + (noOfTrucks*truckTime)+ (noOfBikes*bikeTime))/(noOfLanes+1))
     # greenTime = math.ceil((noOfVehicles)/noOfLanes) 
-    print('Green Time: ',greenTime)
+    print('Green Time (Adaptive): ',greenTime)
     if(greenTime<defaultMinimum):
         greenTime = defaultMinimum
     elif(greenTime>defaultMaximum):
@@ -347,7 +360,10 @@ def repeat():
     currentYellow = 0   # set yellow signal off
     
     # reset all signal times of current signal to default times
-    signals[currentGreen].green = defaultGreen
+    if ADAPTIVE_MODE:
+        signals[currentGreen].green = defaultGreen
+    else:
+        signals[currentGreen].green = FIXED_GREEN_TIME
     signals[currentGreen].yellow = defaultYellow
     signals[currentGreen].red = defaultRed
        
@@ -357,16 +373,18 @@ def repeat():
     repeat()     
 
 # Print the signal timers on cmd
-def printStatus():                                                                                           
-	for i in range(0, noOfSignals):
-		if(i==currentGreen):
-			if(currentYellow==0):
-				print(" GREEN TS",i+1,"-> r:",signals[i].red," y:",signals[i].yellow," g:",signals[i].green)
-			else:
-				print("YELLOW TS",i+1,"-> r:",signals[i].red," y:",signals[i].yellow," g:",signals[i].green)
-		else:
-			print("   RED TS",i+1,"-> r:",signals[i].red," y:",signals[i].yellow," g:",signals[i].green)
-	print()
+def printStatus():
+    mode_text = "ADAPTIVE" if ADAPTIVE_MODE else "CONVENTIONAL"
+    print(f"=== {mode_text} MODE ===")                                                                                       
+    for i in range(0, noOfSignals):
+        if(i==currentGreen):
+            if(currentYellow==0):
+                print(" GREEN TS",i+1,"-> r:",signals[i].red," y:",signals[i].yellow," g:",signals[i].green)
+            else:
+                print("YELLOW TS",i+1,"-> r:",signals[i].red," y:",signals[i].yellow," g:",signals[i].green)
+        else:
+            print("   RED TS",i+1,"-> r:",signals[i].red," y:",signals[i].yellow," g:",signals[i].green)
+    print()
 
 # Update values of the signal timers after every second
 def updateValues():
@@ -416,6 +434,8 @@ def simulationTime():
         time.sleep(1)
         if(timeElapsed==simTime):
             totalVehicles = 0
+            mode_text = "ADAPTIVE" if ADAPTIVE_MODE else "CONVENTIONAL"
+            print(f'\n=== SIMULATION RESULTS ({mode_text} MODE) ===')
             print('Lane-wise Vehicle Counts')
             for i in range(noOfSignals):
                 print('Lane',i+1,':',vehicles[directionNumbers[i]]['crossed'])
@@ -423,10 +443,44 @@ def simulationTime():
             print('Total vehicles passed: ',totalVehicles)
             print('Total time passed: ',timeElapsed)
             print('No. of vehicles passed per unit time: ',(float(totalVehicles)/float(timeElapsed)))
+            print(f'Signal mode used: {mode_text}')
+            if not ADAPTIVE_MODE:
+                print(f'Fixed green time: {FIXED_GREEN_TIME} seconds')
             os._exit(1)
+
+def getUserChoice():
+    global ADAPTIVE_MODE, FIXED_GREEN_TIME
+    print("=== TRAFFIC SIGNAL SIMULATION ===")
+    print("Choose simulation mode:")
+    print("1. Adaptive Traffic Signal (default)")
+    print("2. Conventional Fixed Timer Signal")
     
+    try:
+        choice = input("Enter your choice (1 or 2): ").strip()
+        if choice == "2":
+            ADAPTIVE_MODE = False
+            try:
+                fixed_time = input(f"Enter fixed green time in seconds (default {FIXED_GREEN_TIME}): ").strip()
+                if fixed_time:
+                    FIXED_GREEN_TIME = int(fixed_time)
+                    if FIXED_GREEN_TIME < 10 or FIXED_GREEN_TIME > 120:
+                        print("Warning: Green time should be between 10-120 seconds. Using default.")
+                        FIXED_GREEN_TIME = 30
+            except ValueError:
+                print("Invalid input. Using default fixed green time.")
+            print(f"Starting CONVENTIONAL mode with {FIXED_GREEN_TIME}s green time...")
+        else:
+            ADAPTIVE_MODE = True
+            print("Starting ADAPTIVE mode...")
+    except KeyboardInterrupt:
+        print("\nExiting...")
+        sys.exit()
+    print()
 
 class Main:
+    # Get user choice for simulation mode
+    getUserChoice()
+    
     thread4 = threading.Thread(name="simulationTime",target=simulationTime, args=()) 
     thread4.daemon = True
     thread4.start()
@@ -448,7 +502,8 @@ class Main:
     background = pygame.image.load('images/mod_int.png')
 
     screen = pygame.display.set_mode(screenSize)
-    pygame.display.set_caption("SIMULATION")
+    mode_text = "ADAPTIVE" if ADAPTIVE_MODE else "CONVENTIONAL"
+    pygame.display.set_caption(f"TRAFFIC SIMULATION - {mode_text} MODE")
 
     # Loading signal images and font
     redSignal = pygame.image.load('images/signals/red.png')
@@ -502,6 +557,11 @@ class Main:
         timeElapsedText = font.render(("Time Elapsed: "+str(timeElapsed)), True, black, white)
         screen.blit(timeElapsedText,(1100,50))
 
+        # Display simulation mode
+        mode_text = "ADAPTIVE" if ADAPTIVE_MODE else f"CONVENTIONAL ({FIXED_GREEN_TIME}s)"
+        modeText = font.render(f"Mode: {mode_text}", True, black, white)
+        screen.blit(modeText,(1100,80))
+
         # display the vehicles
         for vehicle in simulation:  
             screen.blit(vehicle.currentImage, [vehicle.x, vehicle.y])
@@ -511,4 +571,4 @@ class Main:
 
 Main()
 
-  
+
