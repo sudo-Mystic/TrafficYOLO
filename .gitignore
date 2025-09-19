@@ -1,5 +1,5 @@
 .DS_Store
-
+Code/YOLO/darkflow/bin/yolov2.weights
  Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
