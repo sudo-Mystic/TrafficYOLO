@@ -16,8 +16,8 @@ import sys
 import os
 
 # Configuration for simulation mode
-ADAPTIVE_MODE = True  # Set to False for conventional fixed timing mode
-FIXED_GREEN_TIME = 12  # Fixed green time for conventional mode
+ADAPTIVE_MODE = False  # Set to False for conventional fixed timing mode
+FIXED_GREEN_TIME = 8  # Fixed green time for conventional mode
 
 # options={
 #    'model':'./cfg/yolo.cfg',     #specifying the path of model
@@ -28,11 +28,11 @@ FIXED_GREEN_TIME = 12  # Fixed green time for conventional mode
 # tfnet=TFNet(options)    #READ ABOUT TFNET
 
 # Default values of signal times
-defaultRed = 150
+defaultRed = 100
 defaultYellow = 5
-defaultGreen = 20
-defaultMinimum = 10
-defaultMaximum = 60
+defaultGreen = 10
+defaultMinimum = 5
+defaultMaximum = 40
 
 signals = []
 noOfSignals = 4
@@ -270,13 +270,16 @@ class Vehicle(pygame.sprite.Sprite):
 
 # Initialization of signals with default values
 def initialize():
-    ts1 = TrafficSignal(0, defaultYellow, defaultGreen, defaultMinimum, defaultMaximum)
+    # Use the appropriate green time based on mode
+    initial_green = FIXED_GREEN_TIME if not ADAPTIVE_MODE else defaultGreen
+    
+    ts1 = TrafficSignal(0, defaultYellow, initial_green, defaultMinimum, defaultMaximum)
     signals.append(ts1)
-    ts2 = TrafficSignal(ts1.red+ts1.yellow+ts1.green, defaultYellow, defaultGreen, defaultMinimum, defaultMaximum)
+    ts2 = TrafficSignal(ts1.red+ts1.yellow+ts1.green, defaultYellow, initial_green, defaultMinimum, defaultMaximum)
     signals.append(ts2)
-    ts3 = TrafficSignal(defaultRed, defaultYellow, defaultGreen, defaultMinimum, defaultMaximum)
+    ts3 = TrafficSignal(defaultRed, defaultYellow, initial_green, defaultMinimum, defaultMaximum)
     signals.append(ts3)
-    ts4 = TrafficSignal(defaultRed, defaultYellow, defaultGreen, defaultMinimum, defaultMaximum)
+    ts4 = TrafficSignal(defaultRed, defaultYellow, initial_green, defaultMinimum, defaultMaximum)
     signals.append(ts4)
     repeat()
 
@@ -359,11 +362,8 @@ def repeat():
         time.sleep(1)
     currentYellow = 0   # set yellow signal off
     
-    # reset all signal times of current signal to default times
-    if ADAPTIVE_MODE:
-        signals[currentGreen].green = defaultGreen
-    else:
-        signals[currentGreen].green = FIXED_GREEN_TIME
+    # reset all signal times of current signal to default times based on mode
+    signals[currentGreen].green = FIXED_GREEN_TIME if not ADAPTIVE_MODE else defaultGreen
     signals[currentGreen].yellow = defaultYellow
     signals[currentGreen].red = defaultRed
        
